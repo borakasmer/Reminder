@@ -1,0 +1,222 @@
+﻿
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+
+<html>
+<head>
+    <meta name="viewport" content="width=device-width" />
+    <title>Index</title>
+    <script src="~/Scripts/jquery-2.1.4.min.js"></script>
+
+    <script src="~/Scripts/jquery-ui-1.11.4.min.js"></script>
+
+    <script src="~/Scripts/jquery.signalR-2.2.0.min.js"></script>
+    <script src="@Url.Content("~/signalr/hubs")"></script>
+
+    <script>
+        var hubProxy = $.connection.reciver;
+        $.connection.hub.logging = true;
+        $.connection.hub.start().done(function () {
+            console.log("hub.start.done");
+        }).fail(function (error) {
+            console.log(error);
+        });
+        var connectionID;
+        hubProxy.client.GetConnectionID = function (_connectionID) {
+            console.log("ConnectionID:" + _connectionID);
+            connectionID = _connectionID;
+        }
+        hubProxy.client.MovePaper = function (newSrc, Cordinates) {
+            var _top = Cordinates.split('x')[0];
+            var _left = Cordinates.split('x')[1];
+
+            var _newSrc = newSrc.split('æ')[0];
+            var _name = newSrc.split('æ')[1];
+            var object = $('img[src*="' + _name + '"]');
+            //object[0].src = "http://localhost:34544/Notes/" + _newSrc;
+            object[0].src = "http://stickypaper.azurewebsites.net/Notes/" + _newSrc;
+
+            $(object[0]).clearQueue();
+            $(object[0]).stop();
+            $(object[0]).animate({
+                top: _top,
+                left: _left
+            }, 1000);
+        };
+
+        hubProxy.client.AddNote = function (imgName) {
+            $('#draggable').append("<img src='/Notes/" + imgName + ".png' class='paper' style='position:absolute'/>");
+            init();
+        };
+
+        hubProxy.client.DeleteImage = function (imgName) {
+            var object = $('img[src*="' + imgName + '"]');
+            object[0].remove();
+        };
+
+        function init() {
+            $(".paper").draggable({
+                start: function () {
+                    //coordinates(this);
+                },
+                stop: function () {
+
+                    var _left = $(this)[0].style.left.replace("px", "");
+                    var _top = $(this)[0].style.top.replace("px", "");
+
+                    var left = _left;
+                    var top = _top;
+                    coordinates(top, left, this.src);
+                }
+            });
+
+            $(".paper").dblclick(function () {
+                $.post("/Home/DeleteImage", { imgUrl: this.src, ConnectionID: connectionID }).done(function (imgName) {
+                    var object = $('img[src*="' + imgName + '"]');
+                    object[0].remove();
+                });
+            });
+        }
+        function AddNote(id) {
+            switch (id) {
+                case 1:
+                    {
+                        $.post("/Home/PostMessage", { Note: $('#txtNote').val(), color: 'red', ConnectionID: connectionID }).done(function (imgName) {
+                            $('#draggable').append("<img src='/Notes/" + imgName + ".png' class='paper' style='position:absolute'/>");
+                            init();
+                        });
+                        break;
+                    }
+                case 2:
+                    {
+                        $.post("/Home/PostMessage", { Note: $('#txtNote').val(), color: 'yellow', ConnectionID: connectionID }).done(function (imgName) {
+                            $('#draggable').append("<img src='/Notes/" + imgName + ".png' class='paper' style='position:absolute'/>");
+                            init();
+                        });
+
+                        break;
+                    }
+                case 3:
+                    {
+                        $.post("/Home/PostMessage", { Note: $('#txtNote').val(), color: 'blue', ConnectionID: connectionID }).done(function (imgName) {
+                            $('#draggable').append("<img src='/Notes/" + imgName + ".png' class='paper' style='position:absolute'/>");
+                            init();
+                        });
+
+                        break;
+                    }
+                case 4:
+                    {
+                        $.post("/Home/PostMessage", { Note: $('#txtNote').val(), color: 'green', ConnectionID: connectionID }).done(function (imgName) {
+                            $('#draggable').append("<img src='/Notes/" + imgName + ".png' class='paper' style='position:absolute'/>");
+                            init();
+                        });
+                        break;
+                    }
+            }
+            $("#txtNote").val("");
+            $("#txtNote").focus();
+        }
+        $(document).ready(function () {
+            $('#txtNote').focus(function () {
+                if ($('#txtNote').val().trim() == 'Yazmak İstediğiniz Notu Belirtiniz!') {
+                    $('#txtNote').val('');
+                }
+            }).blur(function () {
+                if ($('#txtNote').val().trim() == '') {
+                    $('#txtNote').val('Yazmak İstediğiniz Notu Belirtiniz!')
+                }
+            });
+
+            $.ajax({
+                url: '/Home/GetImages',
+                type: 'post',
+                dataType: 'json',
+                success: function (imageList) {
+                    for (var i = 0; i < imageList.length; i++) {
+                        if (imageList[i].ImageName.split('_').length > 1) {
+                            var _top = imageList[i].ImageName.split('_')[1].split('x')[0];
+                            var _left = imageList[i].ImageName.split('_')[1].split('x')[1].replace('.png', '');
+                            $('#draggable').append("<img src='/Notes/" + imageList[i].ImageName + "' class='paper' style='top:" + _top + "px; left: " + _left + "px; position:absolute'/>");
+                        }
+                        else {
+                            $('#draggable').append("<img src='/Notes/" + imageList[i].ImageName + "' class='paper' style='position:absolute' />");
+
+                        }
+                    };
+                    init();
+                }
+            });
+        });
+
+        //var coordinates = function (element) {
+        //    var name=element.src;
+        //    console.log(element.src);
+        //    element = $(element);
+        //    var top = element.position().top;
+        //    var left = element.position().left;
+        //    console.log("top:" + top + " left:" + left);
+        //    $.post("/Home/ChangeImageName", { Name: name, Cordinates: top + "x" + left }).done(function (newSrc) {
+        //        var _newSrc = newSrc.split('æ')[0];
+        //        var _name = newSrc.split('æ')[1];
+        //        var object = $('img[src*="' + _name + '"]');
+        //        object[0].src = "http://localhost:34544/Notes/" + _newSrc;
+        //    });
+        //}
+
+        var coordinates = function (_top, _left, src) {
+            var name = src;
+            console.log(src);
+            var top = _top;
+            var left = _left;
+            console.log("top:" + top + " left:" + left);
+            $.post("/Home/ChangeImageName", { Name: name, Cordinates: top + "x" + left, ConnectionID: connectionID }).done(function (newSrc) {
+                var _newSrc = newSrc.split('æ')[0];
+                var _name = newSrc.split('æ')[1];
+                var object = $('img[src*="' + _name + '"]');
+                //object[0].src = "http://localhost:34544/Notes/" + _newSrc;
+                object[0].src = "http://stickypaper.azurewebsites.net/Notes/" + _newSrc;
+            });
+        }
+
+
+    </script>
+    <style>
+        img.paper {
+            width: 150px;
+            height: 150px;
+            padding: 0.5em;
+        }
+
+        img.menu {
+            width: 50px;
+            height: 50px;
+            padding: 0.5em;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="menu" style="background-image: url('/Menu/Background2.png');height:70px; z-index:999999">
+            <img src="~/Menu/MenuRed.png" class="menu" onclick="AddNote(1)" />
+            <img src="~/Menu/MenuYellow.png" class="menu" onclick="AddNote(2)" />
+            <img src="~/Menu/MenuBlue.png" class="menu" onclick="AddNote(3)" />
+            <img src="~/Menu/MenuGreen.png" class="menu" onclick="AddNote(4)" />
+            <textarea rows="3" cols="30" id="txtNote" style="font-size:medium; color:cornflowerblue;font-family:'Times New Roman';">Yazmak İstediğiniz Notu Belirtiniz!</textarea>
+        </div>
+        <br />
+        <div id="draggable">
+            @*<img src="/Papers/yellow.png" class="paper"/>
+                <img src="/Papers/green.png" class="paper" />
+                <img src="/Papers/blue.png" class="paper" />
+                <img src="/Papers/red.png" class="paper" />*@
+        </div>
+    </div>
+    <script>
+        init();
+    </script>
+</body>
+</html>
